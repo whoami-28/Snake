@@ -15,6 +15,8 @@ namespace Snake
         public StartMenu()
         {
             InitializeComponent();
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
         }
 
         private void button3_Click(object sender, EventArgs e)
@@ -31,7 +33,7 @@ namespace Snake
             Game gameForm = new Game();
             this.Hide();
             gameForm.Show();
-            gameForm.FormClosed += (s, args) => this.Close();
+            gameForm.FormClosed += (s, args) => this.Show();
         }
 
         private void button2_Click(object sender, EventArgs e)

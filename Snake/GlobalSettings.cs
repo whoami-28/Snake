@@ -11,5 +11,6 @@ namespace Snake
         public static GameMode SelectedMode { get; set; } = GameMode.Normal;
         public static RenderStyle CurrentRenderStyle { get; set; } = RenderStyle.Normal;
         public static FruitView CurrentFruitStyle { get; set; } = FruitView.Apple;
+        public static bool IsMusicEnabled { get; set; } = true;
     }
 }

@@ -16,6 +16,8 @@ namespace Snake
         {
             InitializeComponent();
             this.Load += Settings_Load;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
         }
         private void Settings_Load(object sender, EventArgs e)
         {
@@ -23,10 +25,12 @@ namespace Snake
             InitializeModeComboBox();
             InitializeRenderStyleComboBox();
             InitializeFruitViewComboBox();
+            InitializeMusicSetting();
             this.comboBox1.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
             this.comboBox2.SelectedIndexChanged += new System.EventHandler(this.comboBox2_SelectedIndexChanged);
             this.comboBox3.SelectedIndexChanged += new System.EventHandler(this.comboBox3_SelectedIndexChanged);
             this.comboBox4.SelectedIndexChanged += new System.EventHandler(this.comboBox4_SelectedIndexChanged);
+            this.checkBox1.CheckedChanged += new System.EventHandler(this.checkBox1_CheckedChanged);
         }
         private void InitializeSpeedComboBox()
         {
@@ -67,6 +71,10 @@ namespace Snake
                 comboBox4.Items.Add(mode.ToString());
             }
             comboBox4.SelectedItem = GlobalSettings.SelectedMode.ToString();
+        }
+        private void InitializeMusicSetting()
+        {
+            checkBox1.Checked = GlobalSettings.IsMusicEnabled;
         }
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -120,6 +128,11 @@ namespace Snake
                 string selected = comboBox4.SelectedItem.ToString();
                 GlobalSettings.CurrentFruitStyle = (FruitView)Enum.Parse(typeof(FruitView), selected);
             }
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            GlobalSettings.IsMusicEnabled = checkBox1.Checked;
         }
     }
 }

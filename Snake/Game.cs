@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
-using System.Drawing;
+using GDI = System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Media;
 
 namespace Snake
 {
@@ -16,31 +18,53 @@ namespace Snake
         private Point food;
         private Direction currentDirection = Direction.Right;
         private int score = 0;
-        private int cellSize = 16;
+        private int cellSize = 20;
         private int boardWidth = 36;
         private int boardHeight = 22;
 
         private Timer gameTimer = new Timer();
         private bool isDirectionChanged = false;
         private Random random = new Random();
+        private bool isPaused = false;
+        private bool isGameOver = false;
 
-        private Dictionary<string, Image> fruitSprites = new Dictionary<string, Image>();
-        private Dictionary<string, Image> snakeSprites = new Dictionary<string, Image>();
-        
+        private Dictionary<string, GDI.Image> fruitSprites = new Dictionary<string, GDI.Image>();
+        private Dictionary<string, GDI.Image> snakeSprites = new Dictionary<string, GDI.Image>();
+        private MediaPlayer mediaPlayer = new MediaPlayer();
+
         public Game()
         {
             InitializeComponent();
             pictureBox.Width = boardWidth * cellSize;
             pictureBox.Height = boardHeight * cellSize;
+            this.ClientSize = new GDI.Size(pictureBox.Width + 24, pictureBox.Height + 24);
+            this.MaximizeBox = false;
+            this.MinimizeBox = true;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
             gameTimer.Tick += GameTimer_Tick;
             this.KeyPreview = true;
             this.KeyDown += Form1_KeyDown;
             pictureBox.Paint += pictureBox_Paint;
             LoadSprites();
+            InitializeMusicPlayer();
             StartGame();
+        }
+        private void InitializeMusicPlayer()
+        {
+            string musicFileName = "background_music.wav";
+            string musicPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, musicFileName);
+            mediaPlayer.Open(new Uri(musicPath));
+            mediaPlayer.Volume = 1.0;
+            mediaPlayer.MediaEnded += MediaPlayer_MediaEnded;
+        }
+        private void MediaPlayer_MediaEnded(object sender, EventArgs e)
+        {
+            mediaPlayer.Position = TimeSpan.Zero;
+            mediaPlayer.Play();
         }
         private void StartGame()
         {
+            isGameOver = false;
             score = 0;
             currentDirection = Direction.Right;
             snake.Clear();
@@ -49,15 +73,23 @@ namespace Snake
             snake.Add(new Point(boardWidth / 2 - 1, boardHeight / 2));
             snake.Add(new Point(boardWidth / 2 - 2, boardHeight / 2));
 
+            if (GlobalSettings.IsMusicEnabled)
+            {
+                mediaPlayer.Play();
+            }
             GenerateFood();
             gameTimer.Start();
             if (this.Controls.Find("lblScore", true).Length > 0)
             {
-                lblScore.Text = "Score: 0";
+                this.Text = "Snake | Score: 0";
             }
         }
         private void GameTimer_Tick(object sender, EventArgs e)
         {
+            if (isPaused)
+            {
+                return;
+            }
             isDirectionChanged = false;
             MoveSnake();
             CheckCollisions();
@@ -78,7 +110,7 @@ namespace Snake
             if (newHead.X == food.X && newHead.Y == food.Y)
             {
                 score++;
-                lblScore.Text = "Score: " + score;
+                this.Text = "Snake | Score: " + score;
                 if (GlobalSettings.SelectedMode != GameMode.NoAcceleration)
                 {
                     if (score % 5 == 0)
@@ -141,51 +173,88 @@ namespace Snake
         private void GameOver()
         {
             gameTimer.Stop();
-            string message = $"Игра окончена!\nВаш счёт: {score}\nНажмите ОК для начала новой игры.";
-
-            if (MessageBox.Show(message, "Game Over", MessageBoxButtons.OK, MessageBoxIcon.Information) == DialogResult.OK)
+            isGameOver = true;
+            if (GlobalSettings.IsMusicEnabled)
             {
-                this.Hide();
-                StartMenu menu = new StartMenu();
-                menu.Show();
+                mediaPlayer.Stop();
             }
+
+            pictureBox.Invalidate();
         }
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
-            if (isDirectionChanged)
+            if (isGameOver)
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    StartGame();
+                }
+                else
+                {
+                    this.Close();
+                }
+                return;
+            }
+            if (e.KeyCode == Keys.Space)
+            {
+                TogglePause();
+                if (isPaused) return;
+            }
+
+            if (isPaused)
             {
                 return;
             }
-            Direction newDirection = currentDirection;
 
-            switch (e.KeyCode)
+            if (isDirectionChanged == false)
             {
-                case Keys.Up:
-                case Keys.W:
-                    if (currentDirection != Direction.Down) newDirection = Direction.Up;
-                    break;
-                case Keys.Down:
-                case Keys.S:
-                    if (currentDirection != Direction.Up) newDirection = Direction.Down;
-                    break;
-                case Keys.Left:
-                case Keys.A:
-                    if (currentDirection != Direction.Right) newDirection = Direction.Left;
-                    break;
-                case Keys.Right:
-                case Keys.D:
-                    if (currentDirection != Direction.Left) newDirection = Direction.Right;
-                    break;
+                if (e.KeyCode == Keys.Right && currentDirection != Direction.Left)
+                {
+                    currentDirection = Direction.Right;
+                    isDirectionChanged = true;
+                }
+                else if (e.KeyCode == Keys.Left && currentDirection != Direction.Right)
+                {
+                    currentDirection = Direction.Left;
+                    isDirectionChanged = true;
+                }
+                else if (e.KeyCode == Keys.Up && currentDirection != Direction.Down)
+                {
+                    currentDirection = Direction.Up;
+                    isDirectionChanged = true;
+                }
+                else if (e.KeyCode == Keys.Down && currentDirection != Direction.Up)
+                {
+                    currentDirection = Direction.Down;
+                    isDirectionChanged = true;
+                }
             }
-            if (newDirection != currentDirection)
+        }
+        private void TogglePause()
+        {
+            isPaused = !isPaused;
+
+            if (isPaused)
             {
-                currentDirection = newDirection;
-                isDirectionChanged = true;
+                timer.Stop();
+                if (GlobalSettings.IsMusicEnabled)
+                {
+                    mediaPlayer.Pause();
+                }
             }
+            else
+            {
+                timer.Start();
+                if (GlobalSettings.IsMusicEnabled)
+                {
+                    mediaPlayer.Play();
+                }
+            }
+            pictureBox.Invalidate();
         }
         private void pictureBox_Paint(object sender, PaintEventArgs e)
         {
-            Graphics canvas = e.Graphics;
+            GDI.Graphics canvas = e.Graphics;
 
             float scaleFactor = 1.5f;
             int enlargedSize = (int)(cellSize * scaleFactor);
@@ -193,7 +262,7 @@ namespace Snake
             int offset = (headSize - cellSize) / 2;
             bool useSprites = GlobalSettings.CurrentRenderStyle == RenderStyle.Normal;
 
-            Pen gridPen = new Pen(Color.LimeGreen, 1);
+            GDI.Pen gridPen = new GDI.Pen(GDI.Color.LimeGreen, 1);
             for (int i = 0; i <= boardWidth; i++)
             {
                 canvas.DrawLine(gridPen, i * cellSize, 0, i * cellSize, pictureBox.Height);
@@ -205,7 +274,7 @@ namespace Snake
 
             for (int i = 0; i < snake.Count; i++)
             {
-                Rectangle rect = new Rectangle(
+                GDI.Rectangle rect = new GDI.Rectangle(
                     snake[i].X * cellSize,
                     snake[i].Y * cellSize,
                     cellSize,
@@ -213,7 +282,7 @@ namespace Snake
                 );
                 if (i == 0)
                 {
-                    rect = new Rectangle(
+                    rect = new GDI.Rectangle(
                         snake[i].X * cellSize - offset,
                         snake[i].Y * cellSize - offset,
                         headSize,
@@ -222,30 +291,30 @@ namespace Snake
                 }
                 if (useSprites)
                 {
-                    Image segmentImage = GetCorrectSprite(i);
+                    GDI.Image segmentImage = GetCorrectSprite(i);
                     if (segmentImage != null)
                     {
                         canvas.DrawImage(segmentImage, rect);
                     }
                     else
                     {
-                        canvas.FillRectangle(Brushes.Gray, rect);
+                        canvas.FillRectangle(GDI.Brushes.Gray, rect);
                     }
                 }
                 else
                 {
                     if (i == 0)
                     {
-                        canvas.FillRectangle(Brushes.DarkGreen, rect);
+                        canvas.FillRectangle(GDI.Brushes.DarkGreen, rect);
                     }
                     else
                     {
-                        canvas.FillRectangle(Brushes.Green, rect);
+                        canvas.FillRectangle(GDI.Brushes.Green, rect);
                     }
                 }
             }
 
-            Rectangle foodRect = new Rectangle(
+            GDI.Rectangle foodRect = new GDI.Rectangle(
                 food.X * cellSize - offset,
                 food.Y * cellSize - offset,
                 enlargedSize,
@@ -255,7 +324,7 @@ namespace Snake
             if (useSprites)
             {
                 string fruitName = GlobalSettings.CurrentFruitStyle.ToString();
-                Image selectedFruitImage = fruitSprites.ContainsKey(fruitName) ? fruitSprites[fruitName] : Properties.Resources.apple;
+                GDI.Image selectedFruitImage = fruitSprites.ContainsKey(fruitName) ? fruitSprites[fruitName] : Properties.Resources.apple;
 
                 if (selectedFruitImage != null)
                 {
@@ -263,16 +332,52 @@ namespace Snake
                 }
                 else
                 {
-                    canvas.FillRectangle(Brushes.Red, foodRect);
+                    canvas.FillRectangle(GDI.Brushes.Red, foodRect);
                 }
             }
             else
             {
-                canvas.FillRectangle(Brushes.Red, foodRect);
+                canvas.FillRectangle(GDI.Brushes.Red, foodRect);
+            }
+            if (isPaused)
+            {
+                GDI.Brush semiTransparentBrush = new GDI.SolidBrush(GDI.Color.FromArgb(150, 0, 0, 0));
+                canvas.FillRectangle(semiTransparentBrush, 0, 0, pictureBox.Width, pictureBox.Height);
+
+                string pauseText = "PAUSE";
+                GDI.Font font = new GDI.Font("Monocraft", 48, GDI.FontStyle.Bold);
+                GDI.Brush brush = GDI.Brushes.White;
+
+                GDI.SizeF textSize = canvas.MeasureString(pauseText, font);
+                float x = (pictureBox.Width - textSize.Width) / 2;
+                float y = (pictureBox.Height - textSize.Height) / 2;
+
+                canvas.DrawString(pauseText, font, brush, x, y);
+            }
+            if (isGameOver)
+            {
+                GDI.Brush semiTransparentBrush = new GDI.SolidBrush(GDI.Color.FromArgb(180, 0, 0, 0));
+                canvas.FillRectangle(semiTransparentBrush, 0, 0, pictureBox.Width, pictureBox.Height);
+
+                string gameOverText = "GAME OVER";
+                GDI.Font fontHeader = new GDI.Font("Monocraft", 50, GDI.FontStyle.Bold);
+                GDI.Brush headerBrush = GDI.Brushes.Red;
+                string instructionText = $"SCORE: {score}\n\n[ENTER] to Restart\n[ANY KEY] to Menu";
+                GDI.Font fontInstruction = new GDI.Font("Monocraft", 20, GDI.FontStyle.Regular);
+
+                GDI.Brush instructionBrush = GDI.Brushes.White;
+                GDI.SizeF headerSize = canvas.MeasureString(gameOverText, fontHeader);
+                float headerX = (pictureBox.Width - headerSize.Width) / 2;
+                float headerY = (pictureBox.Height / 2) - headerSize.Height - 10;
+                GDI.SizeF instructionSize = canvas.MeasureString(instructionText, fontInstruction);
+                float instructionX = (pictureBox.Width - instructionSize.Width) / 2;
+                float instructionY = (pictureBox.Height / 2) + 20;
+                canvas.DrawString(gameOverText, fontHeader, headerBrush, headerX, headerY);
+                canvas.DrawString(instructionText, fontInstruction, instructionBrush, instructionX, instructionY);
             }
         }
 
-        private Image GetCorrectSprite(int index)
+        private GDI.Image GetCorrectSprite(int index)
         {
             if (snakeSprites == null || snakeSprites.Count == 0) return null;
 
