@@ -21,11 +21,7 @@ namespace Snake
 
         private void button3_Click(object sender, EventArgs e)
         {
-            Game gameForm = new Game();
-            Settings setForm = new Settings();
-            this.Close();
-            gameForm.Close();
-            setForm.Close();
+            Application.Exit();
         }
 
         private void button1_Click(object sender, EventArgs e)
